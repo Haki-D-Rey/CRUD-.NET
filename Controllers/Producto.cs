@@ -105,47 +105,47 @@ namespace SCELL.Controllers
 
             connection.Open();
 
-            Console.WriteLine(arregloJson);
-
-            foreach (var item in arregloJson) { 
-            
+            //Console.WriteLine(arregloJson);
+            List<IProducto> listaProducto = new List<IProducto>();
+            foreach (var item in arregloJson)
+            {
+                string json = "";
+                json = JsonConvert.SerializeObject(item);
                 Console.WriteLine(item.Descripcion);
                 Console.WriteLine(item.Precio);
                 Console.WriteLine(item.Cantidad);
-            }
 
-            SqlCommand cmd = new SqlCommand("prAgregarProducto", connection);
-            cmd.CommandType = CommandType.StoredProcedure;
+                SqlCommand cmd = new SqlCommand("prAgregarProducto", connection);
+                cmd.CommandType = CommandType.StoredProcedure;
 
-            cmd.Parameters.Clear();
-            cmd.Parameters.Add("@JsonProducto", SqlDbType.VarChar, 8000).Value = value;
-            var dataReader = cmd.ExecuteReader();
+                cmd.Parameters.Clear();
+                cmd.Parameters.Add("@JsonProducto", SqlDbType.VarChar, 8000).Value = json;
+                var dataReader = cmd.ExecuteReader();
 
-            Console.WriteLine(dataReader);
+                Console.WriteLine(dataReader);
 
-            List<IProducto> listaProducto = new List<IProducto>();
-
-            if (dataReader.HasRows)
-            {
-                while (dataReader.Read())
+                if (dataReader.HasRows)
                 {
-                    // Crear un objeto anónimo para almacenar los datos
-                    ProductoModel dataObject = new ProductoModel
+                    while (dataReader.Read())
                     {
-                        idProducto = (int)dataReader["IdProducto"],
-                        descripcion = (string)dataReader["Descripcion"],
-                        cantidad = (int)dataReader["Cantidad"],
-                        precio = Convert.ToString((decimal)dataReader["Precio"]),
-                        fechaCreacion = (DateTime)dataReader["FechaCreacion"],
-                        fechaModificacion = dataReader["FechaModificacion"] != DBNull.Value ? (DateTime)dataReader["FechaModificacion"] : null,
-                        estadoActivo = (bool)dataReader["EstadoActivo"]
-                        // Agrega más columnas según sea necesario
-                    };
+                        // Crear un objeto anónimo para almacenar los datos
+                        ProductoModel dataObject = new ProductoModel
+                        {
+                            idProducto = (int)dataReader["IdProducto"],
+                            descripcion = (string)dataReader["Descripcion"],
+                            cantidad = (int)dataReader["Cantidad"],
+                            precio = Convert.ToString((decimal)dataReader["Precio"]),
+                            fechaCreacion = (DateTime)dataReader["FechaCreacion"],
+                            fechaModificacion = dataReader["FechaModificacion"] != DBNull.Value ? (DateTime)dataReader["FechaModificacion"] : null,
+                            estadoActivo = (bool)dataReader["EstadoActivo"]
+                            // Agrega más columnas según sea necesario
+                        };
 
-                    listaProducto.Add(dataObject);
+                        listaProducto.Add(dataObject);
+                    }
                 }
+                dataReader.Close();
             }
-
             connection.Close(); // Close the connection when you're done
             return listaProducto;
         }
