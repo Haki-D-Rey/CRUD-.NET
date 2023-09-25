@@ -4,9 +4,9 @@ GO
 CREATE OR ALTER PROCEDURE [dbo].[prActualizarProducto]
 
 @IdProducto		INT,
-@Descripcion	VARCHAR,
+@Descripcion	VARCHAR(MAX),
 @Cantidad		INT,
-@Precio			DECIMAL,
+@Precio			VARCHAR(512),
 @EstadoActivo	BIT
 AS
 BEGIN
@@ -17,7 +17,7 @@ BEGIN
 		--		@EstadoActivo	BIT = 1
 
 		UPDATE [dbo].[Producto]
-		SET Descripcion = @Descripcion, Cantidad = @Cantidad, Precio = @Precio, FechaModificacion = GETDATE(), EstadoActivo = @EstadoActivo
+		SET Descripcion = @Descripcion, Cantidad = @Cantidad, Precio = CAST (@Precio AS DECIMAL(18,2)), FechaModificacion = GETDATE(), EstadoActivo = @EstadoActivo
 		WHERE IdProducto = @IdProducto
 
 		SELECT *
