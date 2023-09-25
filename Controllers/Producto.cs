@@ -2,7 +2,6 @@
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SCELL.Model;
-using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 
@@ -44,7 +43,8 @@ namespace SCELL.Controllers
                 while (dataReader.Read())
                 {
                     // Crear un objeto anónimo para almacenar los datos
-                    ProductoModel dataObject = new ProductoModel {
+                    ProductoModel dataObject = new ProductoModel
+                    {
                         idProducto = (int)dataReader["IdProducto"],
                         descripcion = (string)dataReader["Descripcion"],
                         cantidad = (int)dataReader["Cantidad"],
@@ -217,13 +217,13 @@ namespace SCELL.Controllers
                     dataReader.Close();
                     connection.Close();
                 }
-             }
+            }
             return listaProducto;
         }
 
         // DELETE api/<Producto>/5
         [HttpDelete("{id}")]
-        public string Delete(int id)
+        public object Delete(int id)
         {
             bool resultado = false;
 
@@ -232,7 +232,7 @@ namespace SCELL.Controllers
             SqlCommand cmd = new SqlCommand();
             cmd.Connection = connection;
             cmd.CommandType = CommandType.Text;
-            cmd.CommandText = "UPDATE [dbo].[Producto] SET EstadoActivo = @EstadoActivo, fechaModificacion = GETDATE() WHERE IdProducto = @IdProducto";
+            cmd.CommandText = "UPDATE [dbo].[Producto] SET EstadoActivo = @EstadoActivo, fechaModificacion = GETDATE() WHERE IdProducto = @IdProducto AND EstadoActivo = 1";
             cmd.Parameters.Clear();
             cmd.Parameters.AddWithValue("@EstadoActivo", 0);
             cmd.Parameters.AddWithValue("@IdProducto", id);
@@ -245,9 +245,12 @@ namespace SCELL.Controllers
 
             connection.Close();
 
-            if (!resultado) { return "No se ha eliminado con exito"; }
+            List<object> responseList = new List<object>
+            {
+                new { response = resultado, message = resultado ? $"Se ha eliminado con éxito el producto {id}" : $"Producto ya fue eliminado{id}" }
+            };
 
-            return "Se Ha eliminado con exito";
+            return responseList.FirstOrDefault();
         }
     }
 }
