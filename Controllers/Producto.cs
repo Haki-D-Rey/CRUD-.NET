@@ -1,6 +1,8 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using SCELL.Model;
+using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 
@@ -13,7 +15,7 @@ namespace SCELL.Controllers
     public class Producto : ControllerBase
     {
 
-        private static DBConection DBModel =  new DBConection();
+        private static DBConection DBModel = new DBConection();
         private static SqlConnection connection = new SqlConnection(DBModel.GetConnectionString());
 
         internal class ProductoModel : IProducto
@@ -48,16 +50,16 @@ namespace SCELL.Controllers
                         cantidad = (int)dataReader["Cantidad"],
                         precio = Convert.ToString((decimal)dataReader["Precio"]),
                         fechaCreacion = (DateTime)dataReader["FechaCreacion"],
-                        fechaModificacion = dataReader["FechaModificacion"] != DBNull.Value  ? (DateTime)dataReader["FechaModificacion"] : null,
+                        fechaModificacion = dataReader["FechaModificacion"] != DBNull.Value ? (DateTime)dataReader["FechaModificacion"] : null,
                         estadoActivo = (bool)dataReader["EstadoActivo"]
-                    // Agrega más columnas según sea necesario
+                        // Agrega más columnas según sea necesario
                     };
 
                     listaProducto.Add(dataObject);
                 }
             }
 
-                connection.Close(); // Close the connection when you're done
+            connection.Close(); // Close the connection when you're done
             return listaProducto;
         }
 
@@ -67,7 +69,7 @@ namespace SCELL.Controllers
         {
             connection.Open();
             var cmd = connection.CreateCommand();
-            cmd.CommandText = "SELECT * FROM dbo.Producto WHERE IdProducto="+ id +""; // Remove "@" before "SELECT"
+            cmd.CommandText = "SELECT * FROM dbo.Producto WHERE IdProducto=" + id + ""; // Remove "@" before "SELECT"
             var dataReader = cmd.ExecuteReader();
 
             List<IProducto> listaProducto = new List<IProducto>();
@@ -152,14 +154,100 @@ namespace SCELL.Controllers
 
         // PUT api/<Producto>/5
         [HttpPut("{id}")]
-        public void Put(int id, [FromBody] string value)
+        public IEnumerable<IProducto> Put(int id, [FromBody] string value)
         {
+            List<IProducto> listaProducto = new List<IProducto>();
+
+            List<dynamic> arregloJson = JsonConvert.DeserializeObject<List<dynamic>>(value);
+
+            IProducto productoEncontrado = Get(id).FirstOrDefault();
+
+            foreach (JObject data in arregloJson)
+            {
+
+                if (productoEncontrado != null)
+                {
+                    connection.Open();
+                    // Recorre las propiedades del objeto JSON y actualiza los valores nulos o vacíos
+                    foreach (var propiedad in typeof(ProductoModel).GetProperties())
+                    {
+                        var valorJson = ((JObject)data)[propiedad.Name];
+                        var valorActual = propiedad.GetValue(productoEncontrado);
+
+                        // Si el valor en el JSON no es nulo o vacío, actualiza el valor actual
+                        if (valorJson != null && !string.IsNullOrEmpty(valorJson.ToString()))
+                        {
+                            propiedad.SetValue(productoEncontrado, Convert.ChangeType(valorJson, propiedad.PropertyType));
+                        }
+                    }
+
+                    Console.WriteLine(productoEncontrado);
+
+                    SqlCommand cmd = new SqlCommand("prActualizarProducto", connection);
+                    cmd.CommandType = CommandType.StoredProcedure;
+                    cmd.Parameters.Clear();
+                    cmd.Parameters.Add(new SqlParameter("@IdProducto", SqlDbType.Int)).Value = productoEncontrado.idProducto;
+                    cmd.Parameters.Add(new SqlParameter("@Descripcion", SqlDbType.VarChar, 8000)).Value = productoEncontrado.descripcion.ToString();
+                    cmd.Parameters.Add(new SqlParameter("@Cantidad", SqlDbType.Int)).Value = productoEncontrado.cantidad;
+                    cmd.Parameters.Add(new SqlParameter("@Precio", SqlDbType.VarChar, 8000)).Value = productoEncontrado.precio.ToString();
+                    cmd.Parameters.Add(new SqlParameter("@EstadoActivo", SqlDbType.Bit)).Value = Convert.ToBoolean(productoEncontrado.estadoActivo);
+                    var dataReader = cmd.ExecuteReader();
+
+                    if (dataReader.HasRows)
+                    {
+                        while (dataReader.Read())
+                        {
+                            // Crear un objeto anónimo para almacenar los datos
+                            ProductoModel dataObject = new ProductoModel
+                            {
+                                idProducto = (int)dataReader["IdProducto"],
+                                descripcion = (string)dataReader["Descripcion"],
+                                cantidad = (int)dataReader["Cantidad"],
+                                precio = Convert.ToString((decimal)dataReader["Precio"]),
+                                fechaCreacion = (DateTime)dataReader["FechaCreacion"],
+                                fechaModificacion = dataReader["FechaModificacion"] != DBNull.Value ? (DateTime)dataReader["FechaModificacion"] : null,
+                                estadoActivo = (bool)dataReader["EstadoActivo"]
+                                // Agrega más columnas según sea necesario
+                            };
+
+                            listaProducto.Add(dataObject);
+                        }
+
+                    }
+                    dataReader.Close();
+                    connection.Close();
+                }
+             }
+            return listaProducto;
         }
 
         // DELETE api/<Producto>/5
         [HttpDelete("{id}")]
-        public void Delete(int id)
+        public string Delete(int id)
         {
+            bool resultado = false;
+
+            connection.Open();
+
+            SqlCommand cmd = new SqlCommand();
+            cmd.Connection = connection;
+            cmd.CommandType = CommandType.Text;
+            cmd.CommandText = "UPDATE [dbo].[Producto] SET EstadoActivo = @EstadoActivo, fechaModificacion = GETDATE() WHERE IdProducto = @IdProducto";
+            cmd.Parameters.Clear();
+            cmd.Parameters.AddWithValue("@EstadoActivo", 0);
+            cmd.Parameters.AddWithValue("@IdProducto", id);
+            var rowsAffected = cmd.ExecuteNonQuery();
+
+            if (rowsAffected > 0)
+            {
+                resultado = true;
+            }
+
+            connection.Close();
+
+            if (!resultado) { return "No se ha eliminado con exito"; }
+
+            return "Se Ha eliminado con exito";
         }
     }
 }
